@@ -1,5 +1,4 @@
-human-development-index
-Entity,Code,Year,((0-1; higher values are better))
+Entity,Code,Year,Value
 Afghanistan,AFG,2002,0.373
 Afghanistan,AFG,2003,0.383
 Afghanistan,AFG,2004,0.398
