@@ -3,16 +3,137 @@
 <script src='https://d3js.org/d3.v5.min.js'></script>
 <style> circle {fill: lightblue; stroke: black;} </style>
 <body onload='init()'>
-<svg width=300 height=300>
+<svg width=1200 height=600>
 </svg>
-<div id='notes'>
-<p>Data in this series of visualizations was obtained from <a href='https://ourworldindata.org/human-development-index'>Our World in Data</a></p>
-<div id='welcome'>
-<p>Hello friends, welcome to my webpage. </p>
-<p>Please make yourself comfortable, I'll be with you in a moment.</p>
-<p>Still a moment longer, I apologize.</p>
-</div>
 <script>
+async function init() {
+
+var margin = 50;
+var height = 550;
+var width = 1150;
+
+chart = {
+  const svg = d3.create("svg")
+      .attr("viewBox", [0, 0, width, height])
+      .style("overflow", "visible");
+
+  svg.append("g")
+      .call(xAxis);
+
+  svg.append("g")
+      .call(yAxis);
+
+  const path = svg.append("g")
+      .attr("fill", "none")
+      .attr("stroke", "steelblue")
+      .attr("stroke-width", 1.5)
+      .attr("stroke-linejoin", "round")
+      .attr("stroke-linecap", "round")
+    .selectAll("path")
+    .data(data.series)
+    .join("path")
+      .style("mix-blend-mode", "multiply")
+      .attr("d", d => line(d.values));
+
+  svg.call(hover, path);
+
+  return svg.node();
+}
+
+data = {
+  const data = d3.csvParse(d3.csv("https://nbb-uiuc.github.io/expected-years-normalized.csv"));
+  const columns = data.columns.slice(1);
+  return {
+    y: "% Expected Years of Schooling",
+    series: data.map(d => ({
+      name: d.name.replace(/, ([\w-]+).*/, " $1"),
+      values: columns.map(k => +d[k])
+    })),
+    dates: columns.map(d3.utcParse("%Y-%m"))
+  };
+}
+
+function hover(svg, path) {
+
+  if ("ontouchstart" in document) svg
+      .style("-webkit-tap-highlight-color", "transparent")
+      .on("touchmove", moved)
+      .on("touchstart", entered)
+      .on("touchend", left)
+  else svg
+      .on("mousemove", moved)
+      .on("mouseenter", entered)
+      .on("mouseleave", left);
+
+  const dot = svg.append("g")
+      .attr("display", "none");
+
+  dot.append("circle")
+      .attr("r", 2.5);
+
+  dot.append("text")
+      .attr("font-family", "sans-serif")
+      .attr("font-size", 10)
+      .attr("text-anchor", "middle")
+      .attr("y", -8);
+
+  function moved() {
+    d3.event.preventDefault();
+    const mouse = d3.mouse(this);
+    const xm = x.invert(mouse[0]);
+    const ym = y.invert(mouse[1]);
+    const i1 = d3.bisectLeft(data.dates, xm, 1);
+    const i0 = i1 - 1;
+    const i = xm - data.dates[i0] > data.dates[i1] - xm ? i1 : i0;
+    const s = d3.least(data.series, d => Math.abs(d.values[i] - ym));
+    path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
+    dot.attr("transform", `translate(${x(data.dates[i])},${y(s.values[i])})`);
+    dot.select("text").text(s.name);
+  }
+
+  function entered() {
+    path.style("mix-blend-mode", null).attr("stroke", "#ddd");
+    dot.attr("display", null);
+  }
+
+  function left() {
+    path.style("mix-blend-mode", "multiply").attr("stroke", null);
+    dot.attr("display", "none");
+  }
+}
+
+x = d3.scaleUtc()
+    .domain(d3.extent(data.years))
+    .range([margin, width - margin])
+
+y = d3.scaleLinear()
+    .domain([0, d3.max(data.series, d => d3.max(d.values))]).nice()
+    .range([height - margin, margin])
+
+xAxis = g => g
+    .attr("transform", `translate(0,${height - margin})`)
+    .call(d3.axisBottom(x).ticks(width / 26).tickSizeOuter(0))
+
+yAxis = g => g
+    .attr("transform", `translate(${margin},0)`)
+    .call(d3.axisLeft(y))
+    .call(g => g.select(".domain").remove())
+    .call(g => g.select(".tick:last-of-type text").clone()
+        .attr("x", 3)
+        .attr("text-anchor", "start")
+        .attr("font-weight", "bold")
+        .text(data.y))
+
+line = d3.line()
+    .defined(d => !isNaN(d))
+    .x((d, i) => x(data.dates[i]))
+    .y(d => y(d))
+
+d3 = require("d3@5", "d3-array@2")
+}
 </script>
+<div id='notes'>
+<p>Data in this series of visualizations was obtained from <a href='https://ourworldindata.org/human-development-index'>Our World in Data</a>, then standardized to only include the years 1990 thru 2017.</p>
+</div>
 </body>
 </html>
